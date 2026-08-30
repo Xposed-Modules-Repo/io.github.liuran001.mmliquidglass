@@ -1,106 +1,98 @@
-# WeChat Liquid Glass
+# 微信液态玻璃 WeChat-LiquidGlass
 
-LSPosed module that replaces WeChat's bottom tab bar with a floating liquid-glass
-pill, reproducing the look and feel of the KernelSU manager's floating bottom bar.
+为微信打造的 iOS 26 风格液态玻璃底部导航栏 · LSPosed 模块（libxposed API 102）
 
-## Features
+## ✨ 特性
 
-- **Live refracting glass** — saturation boost, 4dp blur and rounded-rect SDF
-  refraction, sampled from WeChat's own page content every frame. Not a static
-  overlay: the list scrolls behind the glass and bends at the rim.
-- **Droplet indicator** — pressing fades in a dispersion lens that magnifies the
-  tab underneath. Five springs drive its travel, velocity stretch and press scale.
-- **Drag to switch** — hold the droplet and drag sideways; it settles on the
-  nearest tab when released.
-- **Edge to edge** — pages extend under the gesture bar, with the pill floating
-  above them; the list can still scroll its last row clear of the pill.
-- Follows WeChat's light/dark theme. Unread badges keep their own colour.
+- 🫧 **单 pass AGSL 透镜管线**：圆角矩形 SDF 折射、边缘色散、重力传感器高光
+- 💧 **玻璃滴选中动效**：切换标签时液滴滑动、回弹；**支持横向拖拽切换**，跟手拉伸、松手吸附
+- 🎯 **对齐 KernelSU 管理器**：悬浮 pill 宽度贴合内容、4dp 轻模糊 + 容器色垫底、
+  按压时液滴放大 `78/56` 并淡入折射、焦点标签放大 `1.2×`
+- 🔍 **背景实时跟随**：玻璃折射的是当前页面的真实内容，切页即变
+- 🧩 **完整保留原生功能**：红点、未读数、图标渐变、长按菜单全部走微信自己的实现
+- 🌗 **深浅色跟随**：读取应用 uiMode，辅以标签色众数探测交叉校验
+- ♿ **降级兜底**：Android 13 以下退化为轻磨砂；native 模糊库不可用时自动切纯 Java 实现
 
-## Requirements
+## 📦 安装
 
-- Android 13 (API 33) or newer — the refraction is written in AGSL. Older
-  versions fall back to a plain blur.
-- WeChat 8.0.77. Other versions are located by layout shape as a fallback, which
-  is not guaranteed.
-- LSPosed
+1. 准备支持 **libxposed API 102** 的 LSPosed 环境
+2. 安装 APK，在 LSPosed 中启用（作用域已限定 `com.tencent.mm`）
+3. **强制停止**微信后重新打开
 
-## Usage
+> 已在微信 `8.0.77 (3160)` + Android 17 上测试。
 
-1. Install the APK
-2. Enable this module in LSPosed and tick **WeChat** in its scope
-3. Force stop WeChat
-4. Reopen WeChat
+## 🔍 工作原理
 
-## Notes
+```
+Hook Instrumentation.callActivityOnResume
+  └─ LauncherUI：按类名定位 LauncherUIBottomTabView（资源 ID 被 AndResGuard 混淆，不可用）
+       └─ 布局手术：把底栏搬进 LiquidGlassHostLayout
+            ├─ 玻璃层 LiquidGlassView（backdrop = CustomViewPager 当前页）
+            ├─ 液滴层 LiquidGlassView（跟随选中项，可拖拽）
+            └─ 微信原生 LauncherUIBottomTabView（背景已清空）
+```
 
-- The bar is located by class name first; if a WeChat update renames it, a strict
-  structural match is used instead. Should that also miss, WeChat simply keeps
-  its own bar — the module never leaves the app without a tab bar.
-- A WeChat redesign, or the bar moving to Compose, would need re-adaptation.
+日志 tag：`WeChatLiquidGlass`
 
-## Build
+## 🛠️ 构建
 
-No Gradle or Android Studio:
+无需 Gradle / Android Studio：
 
 ```bash
-./setup-tools.sh   # android.jar / build-tools 34 / libxposed
+./setup-tools.sh   # 下载 android.jar / build-tools 34 / libxposed
 ./build.sh
 ```
 
-Built against libxposed API 102.
+产物：`WeChatLiquidGlass-vX.Y.Z.apk`（自动生成 debug 签名）。
 
-## License
+### 可调参数
 
-MIT
+| 参数 | 位置 | 默认 |
+|---|---|---|
+| 折射高度 / 边缘带 | `GlassTuner.onSize()` | 24dp（同 KernelSU `lens()`） |
+| 模糊强度 | `tuneGlass()` | 4dp（同 KernelSU `blur()`） |
+| 每列额外留白 | `hugContentWidth()` | 32dp |
+| 底部抬升 | `GlassConfig.barOffsetDp` | 16dp |
+| 按压放大 / 焦点放大 | `DropletDragController` | 78/56 · 1.2 |
+| 拖拽形变上限 | `DropletDragController.STRETCH_LIMIT` | 0.2 |
 
----
+### 液滴
 
-# 微信液态玻璃
+静止时是一层 10% 的纯色块；按住/拖拽时按 `pressProgress` 淡入透镜：
 
-一个 LSPosed 模块，把微信的底部标签栏换成悬浮的液态玻璃胶囊，效果对齐
-KernelSU 管理器的悬浮底栏。
-
-## 特性
-
-- **实时折射玻璃** —— 饱和度提升、4dp 模糊、圆角矩形 SDF 折射，每帧实时采样
-  微信自己的页面内容。不是静态贴图：列表在玻璃后滚动，边缘会随之弯折。
-- **液滴指示器** —— 按住时淡入带色散的透镜，把下方的标签放大折射。五条弹簧
-  分别驱动位移、速度形变与按压缩放。
-- **拖拽切换** —— 按住液滴左右拖动即可切标签，松手落到最近的一个。
-- **内容延伸到底** —— 页面铺满到手势条之下，胶囊悬浮其上；列表滚到末尾时
-  最后一行仍能完全避开胶囊。
-- 跟随微信深色 / 浅色主题，未读红点保持原色。
-
-## 要求
-
-- Android 13（API 33）及以上 —— 折射用 AGSL 实现，更低版本会退回普通模糊。
-- 微信 8.0.77。其他版本靠布局结构兜底匹配，不保证可用。
-- LSPosed
-
-## 使用方法
-
-1. 安装 APK
-2. 在 LSPosed 中启用本模块，作用域勾选**微信**
-3. 强制停止微信
-4. 重新打开微信
-
-## 说明
-
-- 底栏优先按类名定位；若微信更新改了类名，则改用严格的结构匹配。两者都没
-  命中时，微信会保留它自己的原生底栏 —— 本模块不会让应用失去标签栏。
-- 微信大改版，或底栏改用 Compose 实现，届时需要重新适配。
-
-## 构建
-
-不需要 Gradle 和 Android Studio：
-
-```bash
-./setup-tools.sh   # android.jar / build-tools 34 / libxposed
-./build.sh
+```
+lens(refractionHeight = 10dp × p, refractionAmount = 14dp × p,
+     depthEffect = true, chromaticAberration = 0.5)
 ```
 
-基于 libxposed API 102 构建。
+液滴折射的是 **页面 + 一份单独绘制的 1.2× 标签副本**（KernelSU 的
+`CombinedBackdrop`）。拖拽时看到的放大图标正是这份副本经折射后的样子，
+因此液滴层必须压在真实标签**之上**，而真实标签保持原尺寸——两边都缩放会叠加两次。
 
-## 协议
+### 动画
 
-MIT
+滑动/按压完全复刻 KernelSU 的 `DampedDragAnimation`：五条独立弹簧，参数照搬。
+
+| 弹簧 | 阻尼比 / 刚度 | 驱动 |
+|---|---|---|
+| value | 1.0 / 1000 | 位置（**以标签为单位**，非像素） |
+| velocity | 0.5 / 300 | 归一化速度 → 拉伸形变 |
+| press | 1.0 / 1000 | 按压进度 |
+| scaleX | 0.6 / 250 | 横向缩放 |
+| scaleY | 0.7 / 250 | 纵向缩放 |
+
+两处易被忽略但决定手感的细节：位置以标签为单位追踪，速度按标签数归一化，
+因此不同屏幕密度手感一致；`release()` 会**等液滴接近目标**才回落缩放，
+这样甩动读起来是一个连贯动作而非"滑动 + 单独缩回"。
+
+点击切换也走同一条路径（press → 移动 → release），与拖拽完全一致。
+
+## 🙏 致谢
+
+- [sjtt2/HeyBox-LiquidGlass](https://github.com/sjtt2/HeyBox-LiquidGlass) — MIT，本项目的灵感来源
+- [tiann/KernelSU](https://github.com/tiann/KernelSU) — 拖拽形变的速度曲线参考其 `FloatingBottomBar`
+- [libxposed/api](https://github.com/libxposed/api) — Apache-2.0
+
+## 📄 License
+
+[MIT](LICENSE)
